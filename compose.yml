@@ -1,0 +1,21 @@
+services:
+  app:
+    container_name: ${APP_NAME:-devsecops-app}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CONTAINER_PORT: ${CONTAINER_PORT}
+    image: ${APP_NAME:-devsecops-app}:${APP_VERSION:-latest}
+    env_file:
+      - .env
+    ports:
+      # Replace the defaults in .env with the ports required by the project.
+      - "${HOST_PORT}:${CONTAINER_PORT}"
+    volumes:
+      # Use a named volume for runtime data that must survive container restarts.
+      - app_data:${DATA_DIR:-/data}
+    restart: unless-stopped
+
+volumes:
+  app_data:
