@@ -6,6 +6,7 @@ DATA_DIR="${DATA_DIR:-/data}"
 CONTAINER_PORT="${CONTAINER_PORT:-25565}"
 JAVA_MEMORY="${JAVA_MEMORY:-1G}"
 EULA="${EULA:-false}"
+LEVEL_NAME="${LEVEL_NAME:-world}"
 
 echo "Starting ${APP_NAME} container..."
 echo "Checking data directory: ${DATA_DIR}"
@@ -30,6 +31,14 @@ fi
 echo "eula=true" > "${DATA_DIR}/eula.txt"
 
 cd "${DATA_DIR}"
+
+touch server.properties
+
+if grep -q "^level-name=" server.properties; then
+  sed -i "s|^level-name=.*|level-name=${LEVEL_NAME}|" server.properties
+else
+  echo "level-name=${LEVEL_NAME}" >> server.properties
+fi
 
 echo "Starting Minecraft server on port ${CONTAINER_PORT}..."
 
