@@ -30,3 +30,6 @@ Thumbs.db
 .idea
 .vscode
 .history
+
+# Exceptions
+!minecraft-java-image/server.jar
