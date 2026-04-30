@@ -26,6 +26,12 @@ The setup includes:
 
 ## Quickstart
 
+Prerequisites:
+
+- Docker Engine or Docker Desktop with Docker Compose
+- Git
+- Python is optional and only needed for the `mcstatus` validation command
+
 Clone the repository and enter the project folder.
 
 ```bash
@@ -100,6 +106,13 @@ Create `.env` from the template and adjust deployment-specific values.
 
 ```bash
 cp .env.example .env
+```
+
+Prepare the bind mount directory for the non-root container user.
+
+```bash
+mkdir -p data
+sudo chown -R 999:999 data
 ```
 
 Start the server.

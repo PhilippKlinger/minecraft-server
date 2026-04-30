@@ -35,10 +35,12 @@ fi
 
 echo "eula=true" > "${DATA_DIR}/eula.txt"
 
+# Minecraft writes runtime state into the current working directory.
 cd "${DATA_DIR}"
 
 touch server.properties
 
+# Keep the configured world name reproducible across restarts.
 if grep -q "^level-name=" server.properties; then
   sed -i "s|^level-name=.*|level-name=${LEVEL_NAME}|" server.properties
 else
@@ -47,6 +49,7 @@ fi
 
 mkdir -p mods
 
+# Copy bundled baseline mods without overwriting manually managed mods.
 if [ -d /app/mods ]; then
   echo "Syncing bundled server mods..."
   for MOD_FILE in /app/mods/*.jar; do
