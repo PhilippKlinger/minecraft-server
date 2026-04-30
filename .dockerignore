@@ -30,3 +30,9 @@ Thumbs.db
 .idea
 .vscode
 .history
+
+# Exceptions
+!minecraft-java-image/server.jar
+!minecraft-java-image/fabric-server-launcher.jar
+!minecraft-java-image/mods/
+!minecraft-java-image/mods/*.jar

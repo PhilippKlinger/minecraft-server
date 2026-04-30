@@ -17,6 +17,11 @@ data/
 logs/
 *.log
 *.jar
+!minecraft-java-image/
+!minecraft-java-image/server.jar
+!minecraft-java-image/fabric-server-launcher.jar
+!minecraft-java-image/mods/
+!minecraft-java-image/mods/*.jar
 
 # Build output and dependency folders
 build/
