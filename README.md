@@ -176,27 +176,16 @@ world directory.
 
 ## Validation
 
-Local validation:
+The server can be tested with a Minecraft Java Edition client or with a status
+check tool such as `mcstatus`.
 
 ```bash
-docker compose up --build -d
-docker compose ps
-docker compose logs --tail 150 mc-server
+python -m pip install mcstatus
+python -m mcstatus <server-ip>:8888 status
 ```
 
-Check:
-
-- the logs show `Done (...s)! For help, type "help"`
-- the logs show Fabric loading `fabric-api`, `lithium`, and `servercore`
-- `data/server.properties` contains the configured `level-name`
-- `data/mods/` contains the bundled mod JARs
-- the host port is reachable on `127.0.0.1:${HOST_PORT}`
-
-VPS validation:
-
-- the server is reachable at `<server-ip>:8888` or `<server-ip>:${HOST_PORT}` if you changed the host port
-- a Minecraft status check or Java Edition client can connect to the server
-- world data remains available after:
+To check persistence, restart the container and confirm that the configured
+world data remains available under `data/`.
 
 ```bash
 docker compose down
