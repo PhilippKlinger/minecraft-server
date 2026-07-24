@@ -7,6 +7,19 @@ CONTAINER_PORT="${CONTAINER_PORT:-25565}"
 JAVA_MEMORY="${JAVA_MEMORY:-1G}"
 EULA="${EULA:-false}"
 LEVEL_NAME="${LEVEL_NAME:-world}"
+MAX_PLAYERS="${MAX_PLAYERS:-20}"
+
+case "${MAX_PLAYERS}" in
+  ''|*[!0-9]*)
+    echo "MAX_PLAYERS must be an integer between 1 and 20." >&2
+    exit 1
+    ;;
+esac
+
+if [ "${MAX_PLAYERS}" -lt 1 ] || [ "${MAX_PLAYERS}" -gt 20 ]; then
+  echo "MAX_PLAYERS must be between 1 and 20." >&2
+  exit 1
+fi
 
 echo "Starting ${APP_NAME} container..."
 echo "Checking data directory: ${DATA_DIR}"
@@ -45,6 +58,13 @@ if grep -q "^level-name=" server.properties; then
   sed -i "s|^level-name=.*|level-name=${LEVEL_NAME}|" server.properties
 else
   echo "level-name=${LEVEL_NAME}" >> server.properties
+fi
+
+# Keep the configured max players count reproducible across restarts.
+if grep -q "^max-players=" server.properties; then
+  sed -i "s|^max-players=.*|max-players=${MAX_PLAYERS}|" server.properties
+else
+  echo "max-players=${MAX_PLAYERS}" >> server.properties
 fi
 
 mkdir -p mods

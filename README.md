@@ -1,28 +1,35 @@
 # Minecraft Server
 
-This repository contains a Dockerized Minecraft Java Edition server with Fabric
-mod support for local testing and VPS deployment.
+This repository provides a Dockerized Minecraft Java Edition server with Fabric
+mod support. It builds a dedicated server image and runs it as the `mc-server`
+Docker Compose service.
 
-The server is designed to run as the `mc-server` service, persist game data
-under `data/`, and be reachable on host port `8888` by default.
+The server publishes port `8888` by default and stores its runtime state in a
+Docker named volume. The same Compose workflow applies on a local machine and
+on a VPS; each Docker host maintains its own volume data.
 
-The setup includes:
+## Contents
 
-- `Dockerfile` for the Java runtime image
-- `compose.yml` for service, port, restart, and bind mount configuration
-- `entrypoint.sh` for EULA handling, world name configuration, mod syncing, and startup
-- `minecraft-java-image/` with the required Minecraft, Fabric, and baseline mod JARs
-- `.env.example` for runtime configuration
-
-## Table of Contents
-
+- [Components](#components)
 - [Quickstart](#quickstart)
-- [Usage](#usage)
+- [Operations and persistence](#operations-and-persistence)
 - [Configuration](#configuration)
-- [Security Notes](#security-notes)
+- [Mods](#mods)
+- [Security notes](#security-notes)
 - [Validation](#validation)
 
----
+## Components
+
+- `Dockerfile` builds the Java runtime image without using a prebuilt Minecraft
+  server image.
+- `compose.yml` defines the `mc-server` service, networking, port publishing,
+  restart policy, and the `minecraft_data` named volume.
+- `entrypoint.sh` checks runtime prerequisites and the EULA, applies selected
+  server configuration, synchronizes bundled baseline mods, and starts the
+  server.
+- `minecraft-java-image/` contains the required Minecraft, Fabric, and
+  baseline-mod artifacts.
+- `.env.example` documents the non-sensitive runtime configuration contract.
 
 ## Quickstart
 
@@ -32,175 +39,124 @@ Prerequisites:
 - Git
 - Python is optional and only needed for the `mcstatus` validation command
 
-Clone the repository and enter the project folder.
+Clone the repository and create the local environment file:
 
 ```bash
 git clone <repository-url>
 cd minecraft-server
-```
-
-Create a local environment file.
-
-```bash
 cp .env.example .env
 ```
 
-Open `.env`, set `EULA=true`, and review the values listed in the
-[Configuration](#configuration) section.
+Open `.env`, set `EULA=true` after accepting the Minecraft EULA, and review the
+values in [Configuration](#configuration).
 
-Build and start the server.
+Build and start the service:
 
 ```bash
 docker compose up --build -d
-```
-
-Check the logs.
-
-```bash
 docker compose logs --tail 100 mc-server
 ```
 
-The server is ready when the logs contain:
+The server is ready when the logs contain `Done (...s)! For help, type "help"`.
+Connect with a compatible Minecraft Java Edition client or a status tool at
+`<host-address>:<HOST_PORT>`; the default host port is `8888`.
 
-```text
-Done (...s)! For help, type "help"
-```
+## Operations and persistence
 
-The server is available at:
-
-```text
-<host-address>:${HOST_PORT}
-```
-
----
-
-## Usage
-
-### Local Docker Usage
-
-Start the server:
+Use the same commands for routine operation on every Docker host:
 
 ```bash
-docker compose up --build -d
-```
-
-Stop the server without deleting persistent data:
-
-```bash
+docker compose up -d
+docker compose restart mc-server
 docker compose down
 ```
 
-Do not remove the `data/` directory if you want to keep the world, server
-configuration, logs, and installed mods.
+The `minecraft_data` Docker named volume is mounted at `/data` in the
+container. It holds world data, `server.properties`, logs, EULA state, and
+installed mods. Docker creates the volume on first use and retains it after a
+normal `docker compose down` or container recreate.
 
-### VPS Deployment
+> [!WARNING]
+> Do not use `docker compose down -v` or remove the `minecraft_data` named
+> volume unless the server data has been intentionally backed up and may be
+> discarded.
 
-Clone the repository on the VPS and enter the project folder.
+Named volumes are local to one Docker host; moving a world between hosts
+requires a separate backup and restore process.
 
-```bash
-git clone <repository-url>
-cd minecraft-server
-```
+No host `data/` directory or manual `chown` step is required. The container
+runs as the dedicated non-root `app` user and checks that `/data` is writable
+before starting the server.
 
-Create `.env` from the template and adjust deployment-specific values.
+## Configuration
 
-```bash
-cp .env.example .env
-```
+Copy `.env.example` to `.env` and adjust only non-sensitive values. Do not
+commit `.env`.
 
-Prepare the bind mount directory for the non-root container user.
+| Variable | Purpose | Default value |
+| --- | --- | --- |
+| `APP_NAME` | Container and image name prefix. | `mc-server` |
+| `APP_VERSION` | Image tag used by Docker Compose. | `latest` |
+| `HOST_PORT` | Published host port. | `8888` |
+| `CONTAINER_PORT` | Internal Minecraft server port. | `25565` |
+| `DATA_DIR` | Runtime data path in the container. Keep this as `/data`, the named-volume mount target. | `/data` |
+| `EULA` | Must be set to `true` after accepting the Minecraft EULA. | `false` |
+| `JAVA_MEMORY` | Java heap-memory setting. | `4G` |
+| `LEVEL_NAME` | World folder/name written to `server.properties`. | `your-world-name` |
+| `MAX_PLAYERS` | Maximum concurrent players written to `server.properties`; only integer values from `1` to `20` are accepted. | `20` |
 
-```bash
-mkdir -p data
-sudo chown -R 999:999 data
-```
+The variables above are part of the supported configuration contract. Other
+Minecraft server properties remain under Minecraft's normal file-based
+configuration and are not silently managed by the entrypoint. On every start,
+the entrypoint updates `level-name` and `max-players` from `LEVEL_NAME` and
+`MAX_PLAYERS`, so the effective values remain reproducible across restarts.
 
-Start the server.
-
-```bash
-docker compose up --build -d
-```
-
-Open the server with a Minecraft Java Edition client or a status tool:
-
-```text
-<server-ip>:8888
-```
-
-### Mods
+## Mods
 
 The image includes these baseline Fabric server mods:
 
-- Fabric API
-- Lithium
-- ServerCore
+- **Fabric API** provides the shared API required by many Fabric mods.
+- **Lithium** improves server-side performance.
+- **ServerCore** provides server-side management and performance features.
 
-During startup, missing bundled mods are copied into the persistent `data/mods/`
-directory. Additional compatible Fabric server mods can be installed by placing
-their `.jar` files into `data/mods/` and restarting the service.
+At startup, the entrypoint copies missing bundled mods into the persistent
+`/data/mods/` directory. It does not overwrite an existing mod with the same
+filename, so manually managed compatible mods remain intact. Additional mods
+must match the Minecraft server version, Fabric loader, and Java Edition server
+environment.
+
+After adding or changing a compatible mod, restart the service:
 
 ```bash
 docker compose restart mc-server
 ```
 
-Only use mods that match the Minecraft server version, Fabric loader, and Java
-Edition server environment.
-
----
-
-## Configuration
-
-Copy `.env.example` to `.env` and adjust the values below for your target
-environment.
-
-| Variable | Purpose | Default Value |
-| --- | --- | --- |
-| `APP_NAME` | Container and image name prefix. | `mc-server` |
-| `APP_VERSION` | Image tag used by Docker Compose. | `latest` |
-| `HOST_PORT` | Published host port for Docker Compose. | `8888` |
-| `CONTAINER_PORT` | Internal Minecraft server port. | `25565` |
-| `DATA_DIR` | Persistent runtime data directory inside the container. | `/data` |
-| `EULA` | Must be set to `true` after accepting the Minecraft EULA. | `false` |
-| `JAVA_MEMORY` | Java heap memory. The official Minecraft example uses `4G`; lower it for local testing if needed. | `4G` |
-| `LEVEL_NAME` | Minecraft world folder/name written to `server.properties`. | `your-world-name` |
-
-The container runtime stores persistent data under:
-
-```text
-/data
-```
-
-This path is mounted from the local `data/` directory and remains available
-after a normal restart. Changing `LEVEL_NAME` can create or load a different
-world directory.
-
----
-
-## Security Notes
+## Security notes
 
 - Do not commit real `.env` files.
-- Do not store SSH keys, passwords, tokens, usernames, server IP addresses, or other sensitive values in the repository.
-- Keep runtime data, logs, and generated files out of version control.
-- The container runs as a dedicated non-root `app` user.
-- Only commit the required Minecraft, Fabric, and baseline mod artifacts from `minecraft-java-image/`.
-- Use trusted mod sources and verify that mod versions match the server version.
-
----
+- Do not store SSH keys, passwords, tokens, usernames, server IP addresses, or
+  other sensitive values in the repository.
+- Keep generated runtime data and logs out of version control.
+- The Minecraft process runs as the non-root `app` user.
+- Only use trusted, version-compatible Minecraft, Fabric, and mod artifacts.
 
 ## Validation
 
-The server can be tested with a Minecraft Java Edition client or with a status
-check tool such as `mcstatus`.
+Check the final service state with its logs and, when available, a Minecraft
+Java Edition client. A status check can be performed with `mcstatus`:
 
 ```bash
 python -m pip install mcstatus
-python -m mcstatus <server-ip>:8888 status
+python -m mcstatus <host-address>:8888 status
 ```
 
-To check persistence, restart the container and confirm that the configured
-world data remains available under `data/`.
+To verify persistence, record an observable server state, recreate the
+container without deleting the volume, and verify that the state remains:
 
 ```bash
 docker compose down
 docker compose up -d
 ```
+
+Also verify the configured restart policy with a controlled test before the
+final submission.
