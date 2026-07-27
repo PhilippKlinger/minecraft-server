@@ -11,7 +11,7 @@ MAX_PLAYERS="${MAX_PLAYERS:-20}"
 
 case "${MAX_PLAYERS}" in
   ''|*[!0-9]*)
-    echo "MAX_PLAYERS must be an integer between 1 and 20." >&2
+    echo "MAX_PLAYERS must be an integer." >&2
     exit 1
     ;;
 esac
