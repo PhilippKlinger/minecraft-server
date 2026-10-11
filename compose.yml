@@ -1,0 +1,23 @@
+services:
+  mc-server:
+    container_name: ${APP_NAME:-mc-server}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${APP_NAME:-mc-server}:${APP_VERSION:-latest}
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-8888}:${CONTAINER_PORT:-25565}"
+    volumes:
+      - minecraft_data:/data
+    restart: unless-stopped
+    networks:
+        - mc-server
+
+networks:
+  mc-server:
+    name: mc-server
+
+volumes:
+  minecraft_data:
